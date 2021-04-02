@@ -1,0 +1,148 @@
+---
+title: "Analisis Data Panel - Hardianti"
+author: "Muhammad Syidiq Abdjanur"
+date: "31/3/2021"
+output:
+  word_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: inline
+---
+## Analisi Data Panel Studi Kasus PDRB Kab/Kota di SULTRA
+
+### Ekplorasi Data
+
+```{r}
+library(tidyverse)
+data <- data.frame(read_csv("D:/ORANG STATISTIK --/Analisis regresi data panel - hardianti/data4.csv"))
+head(data)
+```
+
+```{r}
+summary(data)
+```
+
+```{r}
+nc = colnames(data[,c(-1,-2)])
+s = list()
+me = list()
+ma = list()
+mi = list()
+for (i in nc) {
+    s = append(s,sd(data[,i]))
+    me = append(me,mean(data[,i]))
+    ma = append(ma,max(data[,i]))
+    mi = append(mi,min(data[,i]))
+    
+}
+data.frame(Variabel=nc,Max=matrix(ma),Min=matrix(mi),Mean=matrix(me),SD=matrix(s))
+```
+
+
+
+
+##### Melakukan list variabel-variabel pada data yang di analisis
+
+```{r}
+print(nc)
+```
+
+
+### Analisis Data Panel
+
+
+#### Uji Chow
+```{r}
+#Regresi Data Panel
+library(plm)
+
+#Y.PDRB~X1.Jumlah_Penduduk+X2.Jumlah_Murid_SMA+X3.IPM+X4.Pengangguran_Terbuka
+#Uji Chow
+common=plm(Y.PDRB~X1.Jumlah_Penduduk+X2.Jumlah_Murid_SMA+X3.IPM+X4.Pengangguran_Terbuka,data=data,model="pooling")
+fixed=plm(Y.PDRB~X1.Jumlah_Penduduk+X2.Jumlah_Murid_SMA+X3.IPM+X4.Pengangguran_Terbuka,data=data,model="within")
+pooltest(common,fixed)
+```
+
+Berdasarkan hasil uji Chow menunjukkan bahwa nilai p-value = 0.02723, yang berarti hipotesis nol ditolak. Artinya metode fixed effect lebih baik digunakan daripada menggunakan metode common effect.
+
+
+
+#### Uji Hausman
+```{r}
+#Uji Hausman
+fixed=plm(Y.PDRB~X1.Jumlah_Penduduk+X2.Jumlah_Murid_SMA+X3.IPM+X4.Pengangguran_Terbuka,data=data,model="within")
+random=plm(Y.PDRB~X1.Jumlah_Penduduk+X2.Jumlah_Murid_SMA+X3.IPM+X4.Pengangguran_Terbuka,data=data,model="random")
+phtest(fixed,random)
+```
+
+Berdasarkan hasil uji Chow menunjukkan bahwa nilai p-value = 1.615e-06, yang berarti hipotesis nol ditolak. Artinya metode fixed effect lebih baik digunakan daripada menggunakan metode random effect.
+
+
+
+#### Uji Breusch Pagan
+```{r}
+#Uji Breusch Pagan
+gr=plm(Y.PDRB~X1.Jumlah_Penduduk+X2.Jumlah_Murid_SMA+X3.IPM+X4.Pengangguran_Terbuka, data=data,model="within")
+#Efek Dua Arah
+plmtest(gr, effect="twoways", type="bp") # uji efek individu maupun waktu
+#Efek Individu/Cross Section
+plmtest(gr, effect="individual", type="bp") # uji efek individu
+#Efek Waktu/Time
+plmtest(gr, effect="time", type="bp") # uji efek waktu
+```
+
+Berdasarkan hasil pengujian Breusch Pagan diperoleh kesimpulan bahwa pada model fixed effect terdapat efek dua arah. setelah diuji efek cross section dan time, ternyata model juga signifikan terbentuk adalah model fixed effect terdapat efek satu arah, yaitu efek time.
+
+### Uji Asumsi Klasik
+
+
+
+#### uji Multikolinearitas
+```{r}
+#uji autokorelasi
+m1=plm(Y.PDRB~X1.Jumlah_Penduduk+X2.Jumlah_Murid_SMA+X3.IPM+X4.Pengangguran_Terbuka, data=data,model="within",effect="time")
+cor(data[,nc])
+library(car)
+m=lm(Y.PDRB~X1.Jumlah_Penduduk+X2.Jumlah_Murid_SMA+X3.IPM+X4.Pengangguran_Terbuka, data=data)
+vif(m)
+```
+
+Berdasarkan hasil uji VIF, diperoleh bahwa nilai VIF pada setiap variabel < 10 maka yang berarti hipotesis nol ditolak. Sehingga disimpulkan bahwa tidak terdapat korelasi antara variabel independen/bebas.
+
+
+
+#### Heteroscedasticity Robust Covariance Estimator¶
+```{r}
+#Heteroscedasticity Robust Covariance Estimator
+library(lmtest)
+coeftest(m1,vcovHC)
+summary(m1)
+```
+Disimpulkan pengujian asumsi homoskedastsitas diperoleh bahwa tidak terdapat perbedaan koefisien variabel independen dalam uji t dengan matriks kovariansi. Sehingga hasil pengujian robust terhadap heteroskedastisitas matriks kovariansi terpenuhi atau asumsi bahwa struktur variance-covariance residual sama.
+
+
+
+### Pengujian Model Regresi Data Panel
+
+
+#### Uji - t dan Uji - F Model Time Effect
+```{r}
+m1=plm(Y.PDRB~X1.Jumlah_Penduduk+X2.Jumlah_Murid_SMA+X3.IPM+X4.Pengangguran_Terbuka, data=data,model="within",effect="time")
+summary(m1)
+fixef(m1,type="level")
+```
+
+
+
+#### Uji - t dan Uji - F Model two effect
+```{r}
+m2=plm(Y.PDRB~X1.Jumlah_Penduduk+X2.Jumlah_Murid_SMA+X3.IPM+X4.Pengangguran_Terbuka, data=data,model="within",effect="twoways")
+summary(m2)
+```
+
+#### Uji - t dan Uji - F Model two effect - ulang
+```{r}
+m3=plm(Y.PDRB~X1.Jumlah_Penduduk+X4.Pengangguran_Terbuka, data=data,model="within",effect="twoways")
+summary(m3)
+fixef(m3,type="level")
+```
